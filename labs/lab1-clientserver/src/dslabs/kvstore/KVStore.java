@@ -7,11 +7,13 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NonNull;
 import lombok.ToString;
+import java.util.HashMap;
 
 
 @ToString
 @EqualsAndHashCode
 public class KVStore implements Application {
+    private final HashMap<String, String> store = new HashMap<>();
 
     public interface KVStoreCommand extends Command {
     }
@@ -68,16 +70,30 @@ public class KVStore implements Application {
         if (command instanceof Get) {
             Get g = (Get) command;
             // Your code here...
+            if (store.containsKey(g.key())) {
+                return new GetResult(store.get(g.key()));
+            }
+            return new KeyNotFound();
         }
 
         if (command instanceof Put) {
             Put p = (Put) command;
             // Your code here...
+            store.put(p.key(), p.value());
+            return new PutOk();
         }
 
         if (command instanceof Append) {
             Append a = (Append) command;
             // Your code here...
+            String result = a.value;
+            if (store.containsKey(a.key())) {
+                result = store.get(a.key()) + result;
+                store.put(a.key(), result);
+            } else {
+                store.put(a.key(), a.value());
+            }
+            return new AppendResult(result);
         }
 
         throw new IllegalArgumentException();
