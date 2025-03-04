@@ -27,8 +27,9 @@ class SimpleClient extends Node implements Client {
     private final Address serverAddress;
 
     // Your code here...
-    private final List<KVStoreCommand> kvStoreCommand = new ArrayList<>();
-    private final List<KVStoreResult> kvStoreResult = new ArrayList<>();
+
+    private KVStoreCommand kvStoreCommand = null;
+    private KVStoreResult kvStoreResult = null;
     private int sequenceNumber = 0;
 
     /* -------------------------------------------------------------------------
@@ -55,8 +56,8 @@ class SimpleClient extends Node implements Client {
         }
 
         KVStoreCommand cmd = (KVStoreCommand) command;
-        this.kvStoreCommand.add(cmd);
-        this.kvStoreResult.add(null);
+        this.kvStoreCommand = cmd;
+        this.kvStoreResult = null;
 
         send(new Request(cmd, sequenceNumber), serverAddress);
         set(new ClientTimer(cmd, sequenceNumber), CLIENT_RETRY_MILLIS);
@@ -66,7 +67,7 @@ class SimpleClient extends Node implements Client {
     @Override
     public synchronized boolean hasResult() {
         // Your code here...
-        return kvStoreResult.get(kvStoreResult.size() - 1) != null;
+        return kvStoreResult != null;
     }
 
     @Override
@@ -75,7 +76,7 @@ class SimpleClient extends Node implements Client {
         while (!hasResult()) {
             wait();
         }
-        return kvStoreResult.get(kvStoreResult.size() - 1);
+        return kvStoreResult;
     }
 
     /* -------------------------------------------------------------------------
@@ -85,7 +86,8 @@ class SimpleClient extends Node implements Client {
         // Your code here...
         if (m.result() instanceof KVStoreResult &&
                 m.sequenceNum() <= sequenceNumber) {
-            kvStoreResult.set(m.sequenceNum(), (KVStoreResult) m.result());
+            kvStoreResult = (KVStoreResult) m.result();
+            //            kvStoreResult.set(m.sequenceNum(), (KVStoreResult) m.result());
             notify();
         }
     }
@@ -95,10 +97,9 @@ class SimpleClient extends Node implements Client {
        -----------------------------------------------------------------------*/
     private synchronized void onClientTimer(ClientTimer t) {
         // Your code here...
-        if (Objects.equals(t.command(),
-                kvStoreCommand.get(t.sequenceNumber())) &&
-                kvStoreResult.get(t.sequenceNumber()) == null) {
-            send(new Request(kvStoreCommand.get(t.sequenceNumber()),
+        if (Objects.equals(t.command(), kvStoreCommand) &&
+                kvStoreResult == null) {
+            send(new Request(kvStoreCommand,
                     t.sequenceNumber()), serverAddress);
             set(t, CLIENT_RETRY_MILLIS);
         }
